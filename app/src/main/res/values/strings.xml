@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Focusly</string>
+    <string name="accessibility_service_description">Focusly uses Accessibility Services to detect when you open applications that you have chosen to block, and displays a friendly reminder screen to help you stay focused on your goals.</string>
+    <string name="accessibility_service_label">Focusly App Blocker Service</string>
+    <string name="notification_channel_focus">Focus Sessions</string>
+    <string name="notification_channel_focus_desc">Notifications for ongoing focus timers and Pomodoro sessions</string>
+    <string name="notification_channel_reminders">Screen Time Reminders</string>
+    <string name="notification_channel_reminders_desc">Notifications when you reach your app usage limits</string>
+</resources>
