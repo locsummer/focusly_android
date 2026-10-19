@@ -45,14 +45,11 @@ class UsageStatsHelper(private val context: Context) {
         for ((pkg, duration) in aggregatedMap) {
             if (duration <= 0 || pkg == context.packageName) continue
 
-            val appName: String
-            val icon = try {
+            val (appName, icon) = try {
                 val appInfo = packageManager.getApplicationInfo(pkg, 0)
-                appName = packageManager.getApplicationLabel(appInfo).toString()
-                packageManager.getApplicationIcon(appInfo)
+                Pair(packageManager.getApplicationLabel(appInfo).toString(), packageManager.getApplicationIcon(appInfo))
             } catch (e: PackageManager.NameNotFoundException) {
-                appName = pkg
-                null
+                Pair(pkg, null)
             }
 
             resultList.add(
@@ -91,4 +88,48 @@ class UsageStatsHelper(private val context: Context) {
         }
         return unlockCount
     }
+
+    fun getWeeklyUsagePerDay(): List<Pair<String, Int>> {
+        if (usageStatsManager == null) return emptyList()
+
+        val result = mutableListOf<Pair<String, Int>>()
+        val dayFormat = java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        for (i in 6 downTo 0) {
+            val dayCal = (calendar.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_YEAR, -i)
+            }
+            val start = dayCal.timeInMillis
+            val end = (dayCal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.timeInMillis
+
+            val stats = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                start,
+                minOf(end, System.currentTimeMillis())
+            ) ?: emptyList()
+
+            val dayTotalMillis = stats
+                .filter { it.packageName != context.packageName }
+                .sumOf { it.totalTimeInForeground }
+
+            val minutes = (dayTotalMillis / 60000L).toInt()
+            val label = dayFormat.format(dayCal.time)
+            result.add(Pair(label, minutes))
+        }
+
+        return result
+    }
 }
+

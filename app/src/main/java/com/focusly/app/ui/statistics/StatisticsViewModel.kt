@@ -12,11 +12,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class StatisticsUiState(
-    val weeklyAverageHours: Float = 2.4f,
-    val totalHoursThisWeek: Float = 16.8f,
-    val pickupsAverage: Int = 45,
+    val weeklyAverageHours: Float = 0f,
+    val totalHoursThisWeek: Float = 0f,
+    val pickupsAverage: Int = 0,
     val weekDaysData: List<DayUsageData> = emptyList(),
-    val smartInsights: String = "Your screen time decreased by 18% compared to last week! Keep it up to reach your 2-hour daily goal."
+    val smartInsights: String = "Tracking active screen time to help you reach your daily focus goals."
 )
 
 class StatisticsViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,23 +30,34 @@ class StatisticsViewModel(application: Application) : AndroidViewModel(applicati
         loadWeeklyData()
     }
 
-    private fun loadWeeklyData() {
+    fun loadWeeklyData() {
         viewModelScope.launch {
-            val sampleDays = listOf(
-                DayUsageData("Mon", 140),
-                DayUsageData("Tue", 120),
-                DayUsageData("Wed", 160),
-                DayUsageData("Thu", 95),
-                DayUsageData("Fri", 185),
-                DayUsageData("Sat", 210),
-                DayUsageData("Sun", 150)
-            )
+            val rawWeekly = usageStatsHelper.getWeeklyUsagePerDay()
+            val daysData = if (rawWeekly.isNotEmpty()) {
+                rawWeekly.map { DayUsageData(it.first, it.second) }
+            } else {
+                emptyList()
+            }
+
+            val totalMins = daysData.sumOf { it.minutes }
+            val totalHours = totalMins / 60f
+            val avgHours = if (daysData.isNotEmpty()) totalHours / daysData.size else 0f
+            val todayPickups = usageStatsHelper.getDeviceUnlockCountToday()
+
+            val insight = when {
+                totalHours == 0f -> "No screen time recorded yet. Make sure usage access permission is granted."
+                avgHours <= 2.0f -> "Great job! Your daily average screen time (${String.format("%.1f", avgHours)}h) is within your target limit."
+                avgHours <= 4.0f -> "Moderate usage detected (${String.format("%.1f", avgHours)}h/day). Setting app limits on social apps can help save an extra hour."
+                else -> "High screen time detected (${String.format("%.1f", avgHours)}h/day). Try scheduling focus sessions during work hours."
+            }
 
             _uiState.update {
                 it.copy(
-                    weekDaysData = sampleDays,
-                    totalHoursThisWeek = sampleDays.sumOf { d -> d.minutes } / 60f,
-                    weeklyAverageHours = (sampleDays.sumOf { d -> d.minutes } / 7f) / 60f
+                    weekDaysData = daysData,
+                    totalHoursThisWeek = (Math.round(totalHours * 10) / 10f),
+                    weeklyAverageHours = (Math.round(avgHours * 10) / 10f),
+                    pickupsAverage = todayPickups,
+                    smartInsights = insight
                 )
             }
         }
